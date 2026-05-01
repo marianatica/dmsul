@@ -3,9 +3,11 @@ import Dashboard from './pages/Dashboard'
 import NovoFrete from './pages/NovoFrete'
 import Historico from './pages/Historico'
 import Relatorios from './pages/Relatorios'
+import logo from './assets/logo.jpeg'
 
 function Header() {
   const location = useLocation()
+
   const titles = {
     '/': 'Dashboard',
     '/novo': 'Novo Frete',
@@ -15,16 +17,15 @@ function Header() {
 
   return (
     <header className="app-header">
-      <div className="brand-lockup">
-        <div className="logo-badge" aria-label="DM Sul">
-          <span className="logo-dm">DM</span>
-          <span className="logo-sul">SUL</span>
+      <div className="header-content">
+        <img src={logo} alt="DM Sul Transportes" className="logo-img" />
+
+        <div className="header-text">
+          <div className="title">DM SUL</div>
+          <div className="subtitle">
+            {titles[location.pathname] || 'Gestão de Fretes'}
+          </div>
         </div>
-        <div className="brand-line" />
-      </div>
-      <div className="header-info">
-        <div className="title">DM SUL</div>
-        <div className="subtitle">{titles[location.pathname] || 'Gestão de Fretes'}</div>
       </div>
     </header>
   )
