@@ -19,7 +19,8 @@ router.get('/', (req, res) => {
     if (data_inicio) { query += ' AND data_frete >= ?'; params.push(data_inicio); }
     if (data_fim) { query += ' AND data_frete <= ?'; params.push(data_fim); }
     if (search) {
-      query += ' AND (origem LIKE ? OR destino LIKE ? OR placa_caminhao LIKE ? OR cnpj_frete LIKE ?)';
+      // Busca também por descrição e notas fiscais
+      query += ' AND (descricao LIKE ? OR placa_caminhao LIKE ? OR cnpj_frete LIKE ? OR notas_fiscais LIKE ?)';
       const t = `%${search}%`;
       params.push(t, t, t, t);
     }
@@ -48,7 +49,7 @@ router.get('/meta/stats', (req, res) => {
     } else {
       const ultimo = new Date(ano, hoje.getMonth() + 1, 0).getDate();
       qInicio = `${ano}-${mesN}-16`;
-      qFim = `${ano}-${mesN}-${ultimo}`;
+      qFim = `${ano}-${mesN}-${String(ultimo).padStart(2, '0')}`;
     }
 
     const totalMes = db.prepare(
@@ -99,24 +100,29 @@ router.post('/', (req, res) => {
   try {
     const { origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete, cnpj_frete } = req.body;
 
-    if (!origem || !destino || !notas_fiscais || !data_frete || !placa_caminhao || valor_frete === undefined || !cnpj_frete) {
+    if (!notas_fiscais || !data_frete || !placa_caminhao || valor_frete === undefined || !cnpj_frete) {
       return res.status(400).json({ error: 'Preencha todos os campos obrigatórios' });
     }
 
     if (!CNPJS_FRETE.includes(cnpj_frete)) {
-      return res.status(400).json({ error: 'CNPJ do frete inválido' });
+      return res.status(400).json({ error: 'CNPJ do frete inválido. Use um dos CNPJs cadastrados.' });
     }
 
     const nfs = Array.isArray(notas_fiscais) ? notas_fiscais : [notas_fiscais];
+    const nfsFiltradas = nfs.filter(n => String(n).trim());
+    if (nfsFiltradas.length === 0) {
+      return res.status(400).json({ error: 'Informe pelo menos uma nota fiscal.' });
+    }
+
     const stmt = db.prepare(`
       INSERT INTO fretes (origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete, cnpj_frete)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
-      origem.trim(),
-      destino.trim(),
-      JSON.stringify(nfs.filter(n => n.trim())),
+      (origem || 'Interno').trim(),
+      (destino || 'Interno').trim(),
+      JSON.stringify(nfsFiltradas),
       (descricao || '').trim(),
       data_frete,
       placa_caminhao.toUpperCase().trim(),

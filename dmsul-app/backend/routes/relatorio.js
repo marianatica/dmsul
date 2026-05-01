@@ -13,7 +13,8 @@ const PRESTADOR = 'PRESTADOR: TRANS DM SUL TRANSPORTADORA - CNPJ: 09.643.781/000
 
 function getFretesNoPeriodo(inicio, fim) {
   return db.prepare(`
-    SELECT * FROM fretes WHERE data_frete >= ? AND data_frete <= ?
+    SELECT * FROM fretes
+    WHERE data_frete >= ? AND data_frete <= ?
     ORDER BY cnpj_frete ASC, data_frete ASC, placa_caminhao ASC, id ASC
   `).all(inicio, fim).map(f => ({ ...f, notas_fiscais: JSON.parse(f.notas_fiscais) }));
 }
@@ -36,18 +37,31 @@ function escapeXml(value) {
     .replace(/"/g, '&quot;');
 }
 
-function getPeriodoRef(inicio) {
+function getPeriodoRef(inicio, fim) {
   const [ano, mes, diaInicio] = inicio.split('-').map(Number);
   const meses = [
     'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
     'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
   ];
   const quinzena = diaInicio <= 15 ? '1ª QUINZENA' : '2ª QUINZENA';
+
+  if (fim) {
+    const [anoFim, mesFim, diaFim] = fim.split('-').map(Number);
+    if (mesFim !== mes || anoFim !== ano) {
+      // Período personalizado que cruza meses
+      return `Ref: ${formatDate(inicio)} a ${formatDate(fim)}`;
+    }
+  }
+
   return `Ref: ${quinzena} ${meses[mes - 1]} ${ano}`;
 }
 
 function cell(value, style = 'Cell', type = 'String', attrs = '') {
   return `<Cell ss:StyleID="${style}"${attrs}><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
+}
+
+function emptyCell(style = 'Blank') {
+  return `<Cell ss:StyleID="${style}"/>`;
 }
 
 function row(cells, height) {
@@ -59,118 +73,139 @@ function columns(widths) {
   return widths.map(width => `<Column ss:Width="${width}"/>`).join('');
 }
 
-function expandFretes(fretes) {
-  return fretes.map(frete => ({
-    ...frete,
-    nota_fiscal: frete.notas_fiscais.length ? frete.notas_fiscais.join(', ') : 'S/Nº',
-  }));
-}
+// Uma aba por CNPJ com todos os fretes daquele CNPJ no período
+function detalheWorksheet(cnpj, fretesDoCnpj, periodoRef, sheetName) {
+  const total = fretesDoCnpj.reduce((sum, f) => sum + Number(f.valor_frete || 0), 0);
 
-function detalheWorksheet(cnpj, fretes, periodoRef, index) {
-  const linhas = expandFretes(fretes);
-  const total = linhas.reduce((sum, f) => sum + Number(f.valor_frete || 0), 0);
   const rows = [
-    row([cell('', 'RedBar', 'String', ' ss:MergeAcross="5"')], 14),
-    row([cell(`${CLIENTE} - CNPJ: ${cnpj}`, 'TopText', 'String', ' ss:MergeAcross="5"')], 18),
+    // Barra vermelha no topo
+    row([cell('', 'RedBar', 'String', ' ss:MergeAcross="5"')], 10),
+    // Nome do cliente
+    row([cell(CLIENTE, 'TopText', 'String', ' ss:MergeAcross="5"')], 18),
+    // CNPJ do frete (tomador)
+    row([cell(`CNPJ TOMADOR: ${cnpj}`, 'TopText', 'String', ' ss:MergeAcross="5"')], 18),
+    // Prestador
     row([cell(PRESTADOR, 'TopText', 'String', ' ss:MergeAcross="5"')], 18),
+    // Período de referência
     row([cell(periodoRef, 'TitleBlue', 'String', ' ss:MergeAcross="5"')], 28),
+    // Cabeçalho da tabela
     row([
       cell('QUANT.', 'HeaderBlue'),
       cell('DATA', 'HeaderBlue'),
       cell('Nº NOTA FISCAL', 'HeaderBlue'),
-      cell('VALOR FRETE', 'HeaderBlue'),
+      cell('PLACA', 'HeaderBlue'),
       cell('DESCRIÇÃO', 'HeaderBlue'),
-      cell('CAMINHÃO', 'HeaderBlue'),
+      cell('VALOR FRETE', 'HeaderBlue'),
     ], 20),
   ];
 
-  linhas.forEach((f, rowIndex) => {
+  if (fretesDoCnpj.length === 0) {
     rows.push(row([
-      cell(rowIndex + 1, 'Cell', 'Number'),
-      cell(formatDate(f.data_frete), 'Cell'),
-      cell(f.nota_fiscal, 'Cell'),
-      cell(formatCurrency(Number(f.valor_frete || 0)), 'Cell'),
-      cell(f.descricao || '-', 'CellLeft'),
-      cell(f.placa_caminhao || '-', 'Cell'),
+      cell('', 'Cell'),
+      cell('', 'Cell'),
+      cell('Nenhum frete neste período', 'CellLeft', 'String', ' ss:MergeAcross="2"'),
+      cell('', 'Cell'),
+      cell(formatCurrency(0), 'Cell'),
     ], 16));
-  });
+  } else {
+    fretesDoCnpj.forEach((f, idx) => {
+      const nfs = Array.isArray(f.notas_fiscais) ? f.notas_fiscais.join(', ') : (f.notas_fiscais || 'S/Nº');
+      rows.push(row([
+        cell(idx + 1, 'Cell', 'Number'),
+        cell(formatDate(f.data_frete), 'Cell'),
+        cell(nfs, 'Cell'),
+        cell(f.placa_caminhao || '-', 'Cell'),
+        cell(f.descricao || '-', 'CellLeft'),
+        cell(formatCurrency(Number(f.valor_frete || 0)), 'Cell'),
+      ], 16));
+    });
+  }
 
+  // Linha de total
   rows.push(row([
-    cell('', 'Blank'),
-    cell('', 'Blank'),
+    emptyCell('Blank'),
+    emptyCell('Blank'),
+    emptyCell('Blank'),
+    emptyCell('Blank'),
     cell('TOTAL', 'Total'),
     cell(formatCurrency(total), 'Total'),
-    cell('', 'Blank'),
-    cell('', 'Blank'),
-  ], 18));
+  ], 20));
 
   return `
-    <Worksheet ss:Name="CNPJ ${index + 1}">
+    <Worksheet ss:Name="${escapeXml(sheetName)}">
       <Table>
-        ${columns([54, 90, 118, 102, 360, 96])}
+        ${columns([54, 90, 140, 96, 300, 110])}
         ${rows.join('')}
       </Table>
     </Worksheet>`;
 }
 
-function resumoWorksheet(fretes) {
+// Aba de resumo geral por CNPJ
+function resumoWorksheet(fretes, periodoRef) {
+  // Agrupa por CNPJ
   const porCnpj = {};
   CNPJS_FRETE.forEach(cnpj => {
     porCnpj[cnpj] = { quantidade: 0, total: 0 };
   });
 
   fretes.forEach(f => {
-    if (!porCnpj[f.cnpj_frete]) porCnpj[f.cnpj_frete] = { quantidade: 0, total: 0 };
+    if (!porCnpj[f.cnpj_frete]) {
+      porCnpj[f.cnpj_frete] = { quantidade: 0, total: 0 };
+    }
     porCnpj[f.cnpj_frete].quantidade++;
     porCnpj[f.cnpj_frete].total += Number(f.valor_frete || 0);
   });
 
-  const totalGeral = Object.values(porCnpj).reduce((sum, item) => sum + item.total, 0);
-  const quantidadeGeral = Object.values(porCnpj).reduce((sum, item) => sum + item.quantidade, 0);
+  const totalGeral = Object.values(porCnpj).reduce((s, v) => s + v.total, 0);
+  const qtdGeral = Object.values(porCnpj).reduce((s, v) => s + v.quantidade, 0);
+
   const rows = [
+    row([cell('', 'RedBar', 'String', ' ss:MergeAcross="3"')], 10),
+    row([cell(`RESUMO GERAL - ${periodoRef}`, 'TitleBlue', 'String', ' ss:MergeAcross="3"')], 28),
     row([
-      cell('', 'ResumoHeader'),
-      cell('CNPJ', 'ResumoHeader'),
-      cell('Quant. viagens', 'ResumoHeader'),
-      cell('Soma', 'ResumoHeader'),
-      cell('Valor', 'ResumoHeader'),
-      cell('Valor Total', 'ResumoHeader'),
-    ], 20),
+      cell('EMPRESA', 'HeaderBlue'),
+      cell('CNPJ', 'HeaderBlue'),
+      cell('QTD. FRETES', 'HeaderBlue'),
+      cell('VALOR TOTAL', 'HeaderBlue'),
+    ], 22),
   ];
 
-  Object.entries(porCnpj).forEach(([cnpj, item]) => {
+  CNPJS_FRETE.forEach(cnpj => {
+    const item = porCnpj[cnpj];
     rows.push(row([
       cell('DM SUL', 'ResumoCellLeft'),
       cell(cnpj, 'ResumoCell'),
       cell(item.quantidade, 'ResumoCell', 'Number'),
-      cell(item.quantidade, 'ResumoCell', 'Number'),
       cell(formatCurrency(item.total), 'ResumoCell'),
-      cell('', 'ResumoCell'),
     ], 20));
   });
 
+  // Linha de total geral
   rows.push(row([
     cell('', 'ResumoTotal'),
-    cell('TOTAL', 'ResumoTotal'),
-    cell(quantidadeGeral, 'ResumoTotal', 'Number'),
-    cell(quantidadeGeral, 'ResumoTotal', 'Number'),
-    cell(formatCurrency(totalGeral), 'ResumoTotal'),
+    cell('TOTAL GERAL', 'ResumoTotal'),
+    cell(qtdGeral, 'ResumoTotal', 'Number'),
     cell(formatCurrency(totalGeral), 'ResumoTotal'),
   ], 24));
 
   return `
     <Worksheet ss:Name="Resumo">
       <Table>
-        ${columns([92, 170, 110, 84, 110, 120])}
+        ${columns([110, 180, 120, 130])}
         ${rows.join('')}
       </Table>
     </Worksheet>`;
 }
 
 function buildExcelXml(fretes, periodoRef) {
-  const detailSheets = CNPJS_FRETE.map((cnpj, index) =>
-    detalheWorksheet(cnpj, fretes.filter(f => f.cnpj_frete === cnpj), periodoRef, index)
-  ).join('');
+  // Uma aba por CNPJ (apenas os que têm fretes, + os sem fretes também para ficar completo)
+  const detailSheets = CNPJS_FRETE.map((cnpj, index) => {
+    const fretesDoCnpj = fretes.filter(f => f.cnpj_frete === cnpj);
+    const sheetName = `CNPJ ${index + 1}`;
+    return detalheWorksheet(cnpj, fretesDoCnpj, periodoRef, sheetName);
+  }).join('');
+
+  const resumo = resumoWorksheet(fretes, periodoRef);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -184,7 +219,9 @@ function buildExcelXml(fretes, periodoRef) {
       <Alignment ss:Vertical="Center"/>
       <Font ss:FontName="Arial" ss:Size="10"/>
     </Style>
-    <Style ss:ID="RedBar"><Interior ss:Color="#E00000" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="RedBar">
+      <Interior ss:Color="#CC0000" ss:Pattern="Solid"/>
+    </Style>
     <Style ss:ID="TopText">
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
       <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
@@ -193,10 +230,12 @@ function buildExcelXml(fretes, periodoRef) {
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
       <Font ss:FontName="Arial" ss:Size="12" ss:Bold="1" ss:Color="#FFFFFF"/>
       <Interior ss:Color="#0B4378" ss:Pattern="Solid"/>
-      <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/>
+      </Borders>
     </Style>
     <Style ss:ID="HeaderBlue">
-      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
       <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
       <Interior ss:Color="#0B4378" ss:Pattern="Solid"/>
       <Borders>
@@ -208,34 +247,48 @@ function buildExcelXml(fretes, periodoRef) {
     </Style>
     <Style ss:ID="Cell">
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Font ss:FontName="Arial" ss:Size="10"/>
       <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
       </Borders>
     </Style>
     <Style ss:ID="CellLeft">
       <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Font ss:FontName="Arial" ss:Size="10"/>
       <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
       </Borders>
     </Style>
     <Style ss:ID="Total">
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
       <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
+      <Interior ss:Color="#EEF3FA" ss:Pattern="Solid"/>
       <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/>
       </Borders>
     </Style>
     <Style ss:ID="Blank"/>
     <Style ss:ID="ResumoHeader">
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
+      <Interior ss:Color="#D9E1F2" ss:Pattern="Solid"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#9DC3E6"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#9DC3E6"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#9DC3E6"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#9DC3E6"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="ResumoCell">
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
       <Font ss:FontName="Arial" ss:Size="10"/>
       <Borders>
@@ -245,17 +298,9 @@ function buildExcelXml(fretes, periodoRef) {
         <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
       </Borders>
     </Style>
-    <Style ss:ID="ResumoCell">
-      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-      </Borders>
-    </Style>
     <Style ss:ID="ResumoCellLeft">
       <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+      <Font ss:FontName="Arial" ss:Size="10"/>
       <Borders>
         <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
         <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
@@ -265,37 +310,63 @@ function buildExcelXml(fretes, periodoRef) {
     </Style>
     <Style ss:ID="ResumoTotal">
       <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/>
+      <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#0B4378" ss:Pattern="Solid"/>
       <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
-        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFBFBF"/>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/>
       </Borders>
     </Style>
   </Styles>
   ${detailSheets}
-  ${resumoWorksheet(fretes)}
+  ${resumo}
 </Workbook>`;
 }
 
-// GET /api/relatorio/periodo - Dados do relatorio (JSON)
+// GET /api/relatorio/periodo - Dados do relatório (JSON) com agrupamento por CNPJ
 router.get('/periodo', (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
-    if (!data_inicio || !data_fim) return res.status(400).json({ error: 'Informe data_inicio e data_fim' });
+    if (!data_inicio || !data_fim) {
+      return res.status(400).json({ error: 'Informe data_inicio e data_fim' });
+    }
 
     const fretes = getFretesNoPeriodo(data_inicio, data_fim);
     const total = fretes.reduce((s, f) => s + f.valor_frete, 0);
 
+    // Agrupamento por caminhão
     const porCaminhao = {};
     fretes.forEach(f => {
-      if (!porCaminhao[f.placa_caminhao]) porCaminhao[f.placa_caminhao] = { total: 0, quantidade: 0 };
+      if (!porCaminhao[f.placa_caminhao]) {
+        porCaminhao[f.placa_caminhao] = { total: 0, quantidade: 0 };
+      }
       porCaminhao[f.placa_caminhao].total += f.valor_frete;
       porCaminhao[f.placa_caminhao].quantidade++;
     });
 
-    res.json({ fretes, total, porCaminhao, periodo: { data_inicio, data_fim } });
+    // Agrupamento por CNPJ
+    const porCnpj = {};
+    CNPJS_FRETE.forEach(cnpj => {
+      porCnpj[cnpj] = { total: 0, quantidade: 0, fretes: [] };
+    });
+    fretes.forEach(f => {
+      if (!porCnpj[f.cnpj_frete]) {
+        porCnpj[f.cnpj_frete] = { total: 0, quantidade: 0, fretes: [] };
+      }
+      porCnpj[f.cnpj_frete].total += f.valor_frete;
+      porCnpj[f.cnpj_frete].quantidade++;
+      porCnpj[f.cnpj_frete].fretes.push(f);
+    });
+
+    res.json({
+      fretes,
+      total,
+      porCaminhao,
+      porCnpj,
+      periodo: { data_inicio, data_fim },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -305,10 +376,13 @@ router.get('/periodo', (req, res) => {
 router.get('/excel', (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
-    if (!data_inicio || !data_fim) return res.status(400).json({ error: 'Informe data_inicio e data_fim' });
+    if (!data_inicio || !data_fim) {
+      return res.status(400).json({ error: 'Informe data_inicio e data_fim' });
+    }
 
     const fretes = getFretesNoPeriodo(data_inicio, data_fim);
-    const xml = buildExcelXml(fretes, getPeriodoRef(data_inicio));
+    const periodoRef = getPeriodoRef(data_inicio, data_fim);
+    const xml = buildExcelXml(fretes, periodoRef);
     const filename = `DMSUL_Fretes_${data_inicio}_a_${data_fim}.xls`;
 
     res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
