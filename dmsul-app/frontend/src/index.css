@@ -186,7 +186,19 @@ body {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 .form-input::placeholder, .form-textarea::placeholder { color: var(--text3); }
-.form-select { appearance: none; cursor: pointer; }
+.form-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text2) 50%),
+    linear-gradient(135deg, var(--text2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
 .form-textarea { resize: vertical; min-height: 80px; }
 
 /* NF list */
@@ -299,7 +311,7 @@ body {
   background: var(--card);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 14px 12px 42px;
+  padding: 12px 14px 12px 72px;
   color: var(--text);
   font-family: inherit;
   font-size: 15px;
@@ -308,7 +320,17 @@ body {
 }
 .search-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
 .search-bar input::placeholder { color: var(--text3); }
-.search-bar .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 16px; }
+.search-bar .search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
 
 /* Filters */
 .filters {
@@ -509,4 +531,250 @@ body {
 /* Responsive */
 @media (min-width: 600px) {
   .app-wrapper { border-left: 1px solid var(--border); border-right: 1px solid var(--border); box-shadow: 0 0 40px rgba(27,59,140,0.05); }
+}
+
+/* ============================================
+   DM SUL - Modern refresh
+   ============================================ */
+:root {
+  --bg: #eef2f7;
+  --bg2: #ffffff;
+  --card: rgba(255,255,255,0.92);
+  --card2: #f7f9fc;
+  --border: #dbe2ec;
+  --primary: #12327a;
+  --primary2: #1c4fb6;
+  --primary-light: rgba(18,50,122,0.08);
+  --primary-glow: rgba(18,50,122,0.13);
+  --accent: #d51f2a;
+  --accent2: #f43a44;
+  --accent-light: rgba(213,31,42,0.08);
+  --text: #101828;
+  --text2: #475467;
+  --text3: #98a2b3;
+  --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
+  --shadow: 0 10px 24px rgba(16,24,40,0.08);
+  --shadow-lg: 0 18px 48px rgba(16,24,40,0.14);
+  --radius: 8px;
+  --radius-sm: 8px;
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% 0, rgba(28,79,182,0.09), transparent 32rem),
+    linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+}
+
+.app-wrapper {
+  max-width: 540px;
+  background: transparent;
+  padding-bottom: 96px;
+}
+
+.page {
+  padding: 18px;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  gap: 14px;
+  padding: 16px 18px 14px;
+  background: rgba(255,255,255,0.86);
+  border-bottom: 1px solid rgba(219,226,236,0.82);
+  box-shadow: 0 8px 30px rgba(16,24,40,0.08);
+  backdrop-filter: blur(16px);
+}
+
+.brand-lockup {
+  display: grid;
+  gap: 6px;
+}
+
+.logo-badge {
+  height: 40px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(18,50,122,0.14);
+  box-shadow: 0 8px 18px rgba(18,50,122,0.12);
+}
+
+.logo-dm,
+.logo-sul {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.logo-dm {
+  background: var(--primary);
+}
+
+.logo-sul {
+  background: var(--accent);
+}
+
+.brand-line {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary) 0 52%, var(--accent) 52% 100%);
+}
+
+.app-header .header-info .title {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.app-header .header-info .subtitle {
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card,
+.stat-card,
+.frete-card {
+  border-radius: 8px;
+  border: 1px solid rgba(219,226,236,0.9);
+  box-shadow: var(--shadow-sm);
+}
+
+.card:hover,
+.frete-card:hover,
+.stat-card:hover {
+  border-color: rgba(18,50,122,0.18);
+  box-shadow: var(--shadow);
+}
+
+.stat-card {
+  padding: 14px;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  height: 2px;
+}
+
+.stat-card .icon {
+  display: none;
+}
+
+.stat-card .label {
+  margin-top: 0;
+  color: var(--text2);
+  letter-spacing: 0;
+}
+
+.stat-card .value {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.quinzena-banner,
+.summary-box {
+  border-radius: 8px;
+  background: linear-gradient(135deg, #12327a 0%, #1c4fb6 62%, #d51f2a 100%);
+  box-shadow: 0 16px 32px rgba(18,50,122,0.2);
+}
+
+.frete-card {
+  border-left: 0;
+  padding: 14px;
+}
+
+.badge {
+  min-height: 24px;
+  border-radius: 999px;
+  background: #f7f9fc;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.form-input,
+.form-select,
+.form-textarea,
+.search-bar input {
+  border-radius: 8px;
+  background-color: rgba(255,255,255,0.96);
+  border-color: rgba(208,215,226,0.95);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.search-bar input:focus {
+  border-color: rgba(18,50,122,0.6);
+  box-shadow: 0 0 0 4px rgba(18,50,122,0.1);
+}
+
+.btn {
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.btn-primary,
+.btn-red {
+  box-shadow: 0 10px 20px rgba(18,50,122,0.14);
+}
+
+.btn-primary {
+  background: var(--primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary2);
+}
+
+.btn-red {
+  background: var(--accent);
+}
+
+.bottom-nav {
+  left: 50%;
+  right: auto;
+  bottom: 14px;
+  width: min(504px, calc(100% - 28px));
+  transform: translateX(-50%);
+  border: 1px solid rgba(219,226,236,0.9);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 16px 40px rgba(16,24,40,0.14);
+  backdrop-filter: blur(16px);
+}
+
+.nav-item {
+  flex: 1;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.nav-item .nav-icon {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.nav-item.active {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+@media (min-width: 600px) {
+  .app-wrapper {
+    border: 0;
+    box-shadow: none;
+  }
 }

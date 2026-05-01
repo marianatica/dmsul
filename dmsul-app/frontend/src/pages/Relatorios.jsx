@@ -4,6 +4,7 @@ import axios from 'axios'
 function formatCurrency(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 }
+
 function formatDate(d) {
   if (!d) return '-'
   const [y, m, day] = d.split('-')
@@ -19,25 +20,22 @@ function getQuinzenas() {
 
   const q = []
 
-  // Quinzena atual
   if (dia <= 15) {
-    q.push({ inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-15`, label: `1ª Quinzena (01–15/${mes}/${ano})` })
+    q.push({ inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-15`, label: `1ª Quinzena (01-15/${mes}/${ano})` })
   } else {
-    q.push({ inicio: `${ano}-${mes}-16`, fim: `${ano}-${mes}-${ultimoDia}`, label: `2ª Quinzena (16–${ultimoDia}/${mes}/${ano})` })
+    q.push({ inicio: `${ano}-${mes}-16`, fim: `${ano}-${mes}-${ultimoDia}`, label: `2ª Quinzena (16-${ultimoDia}/${mes}/${ano})` })
   }
 
-  // Quinzena anterior
   if (dia <= 15) {
-    const anterior = new Date(ano, hoje.getMonth() - 1 + 1, 0)
+    const anterior = new Date(ano, hoje.getMonth(), 0)
     const aUltimo = anterior.getDate()
     const aMes = String(anterior.getMonth() + 1).padStart(2, '0')
     const aAno = anterior.getFullYear()
-    q.push({ inicio: `${aAno}-${aMes}-16`, fim: `${aAno}-${aMes}-${aUltimo}`, label: `2ª Quinzena anterior (16–${aUltimo}/${aMes})` })
+    q.push({ inicio: `${aAno}-${aMes}-16`, fim: `${aAno}-${aMes}-${aUltimo}`, label: `2ª Quinzena anterior (16-${aUltimo}/${aMes})` })
   } else {
-    q.push({ inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-15`, label: `1ª Quinzena (01–15/${mes}/${ano})` })
+    q.push({ inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-15`, label: `1ª Quinzena (01-15/${mes}/${ano})` })
   }
 
-  // Mês atual
   q.push({ inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-${ultimoDia}`, label: `Mês atual (${mes}/${ano})` })
 
   return q
@@ -77,7 +75,7 @@ export default function Relatorios() {
       const url = URL.createObjectURL(new Blob([res.data]))
       const a = document.createElement('a')
       a.href = url
-      a.download = `DMSUL_Fretes_${inicio}_a_${fim}.xlsx`
+      a.download = `DMSUL_Fretes_${inicio}_a_${fim}.xls`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -95,9 +93,8 @@ export default function Relatorios() {
 
   return (
     <div className="page">
-      {/* Atalhos */}
       <div style={{ marginBottom: 16 }}>
-        <div className="form-label" style={{ marginBottom: 10 }}>⚡ Atalhos de período</div>
+        <div className="form-label" style={{ marginBottom: 10 }}>Atalhos de período</div>
         <div className="period-chips">
           {quinzenas.map((q, i) => (
             <button key={i} className="filter-chip" onClick={() => aplicarPeriodo(q)}>
@@ -107,10 +104,9 @@ export default function Relatorios() {
         </div>
       </div>
 
-      {/* Período personalizado */}
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>
-          📅 Período personalizado
+          Período personalizado
         </div>
         <div className="date-row" style={{ marginBottom: 14 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -123,31 +119,27 @@ export default function Relatorios() {
           </div>
         </div>
         <button className="btn btn-primary" onClick={buscar} disabled={loading}>
-          {loading ? '⏳ Buscando...' : '🔍 Gerar Relatório'}
+          {loading ? 'Buscando...' : 'Gerar Relatório'}
         </button>
       </div>
 
-      {/* Resultado */}
       {dados && (
         <>
-          {/* Total */}
           <div className="summary-box">
             <div className="total-label">Total do período · {formatDate(inicio)} a {formatDate(fim)}</div>
             <div className="total-value">{formatCurrency(dados.total)}</div>
             <div className="total-count">{dados.fretes.length} frete{dados.fretes.length !== 1 ? 's' : ''} registrados</div>
           </div>
 
-          {/* Download Excel */}
           <button
             className="btn btn-red"
             style={{ marginBottom: 16 }}
             onClick={baixarExcel}
             disabled={baixando}
           >
-            {baixando ? '⏳ Gerando planilha...' : '📥 Baixar Excel (.xlsx)'}
+            {baixando ? 'Gerando planilha...' : 'Baixar Excel (.xls)'}
           </button>
 
-          {/* Por caminhão */}
           {Object.keys(dados.porCaminhao).length > 0 && (
             <div className="card">
               <div className="section-title" style={{ marginBottom: 14 }}>Resumo por caminhão</div>
@@ -155,7 +147,7 @@ export default function Relatorios() {
                 <div className="caminhao-row" key={placa}>
                   <div>
                     <div className="placa">
-                      <span className="badge primary" style={{ fontSize: 13 }}>🚛 {placa}</span>
+                      <span className="badge primary" style={{ fontSize: 13 }}>Placa: {placa}</span>
                     </div>
                     <div className="info">{info.quantidade} frete{info.quantidade !== 1 ? 's' : ''}</div>
                   </div>
@@ -165,14 +157,12 @@ export default function Relatorios() {
             </div>
           )}
 
-          {/* Lista */}
           <div className="section-header" style={{ marginTop: 16 }}>
             <span className="section-title">Fretes no período</span>
           </div>
 
           {dados.fretes.length === 0 ? (
             <div className="empty">
-              <div className="emoji">📭</div>
               <p>Nenhum frete neste período</p>
             </div>
           ) : (
@@ -180,8 +170,8 @@ export default function Relatorios() {
               <div className="frete-card" key={f.id}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div className="meta" style={{ margin: 0 }}>
-                    <span className="badge primary">🚛 {f.placa_caminhao}</span>
-                    <span className="badge">📅 {formatDate(f.data_frete)}</span>
+                    <span className="badge primary">Placa: {f.placa_caminhao}</span>
+                    <span className="badge">Data: {formatDate(f.data_frete)}</span>
                   </div>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>

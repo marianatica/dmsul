@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../database');
 
+const CNPJS_FRETE = [
+  '05.648.120/0003-85',
+  '05.648.120/0004-66',
+  '05.648.120/0002-02',
+];
+
 // GET /api/fretes - Lista fretes com filtros
 router.get('/', (req, res) => {
   try {
@@ -13,9 +19,9 @@ router.get('/', (req, res) => {
     if (data_inicio) { query += ' AND data_frete >= ?'; params.push(data_inicio); }
     if (data_fim) { query += ' AND data_frete <= ?'; params.push(data_fim); }
     if (search) {
-      query += ' AND (origem LIKE ? OR destino LIKE ? OR placa_caminhao LIKE ?)';
+      query += ' AND (origem LIKE ? OR destino LIKE ? OR placa_caminhao LIKE ? OR cnpj_frete LIKE ?)';
       const t = `%${search}%`;
-      params.push(t, t, t);
+      params.push(t, t, t, t);
     }
 
     query += ' ORDER BY data_frete DESC, id DESC';
@@ -91,16 +97,20 @@ router.get('/:id', (req, res) => {
 // POST /api/fretes - Cria novo frete
 router.post('/', (req, res) => {
   try {
-    const { origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete } = req.body;
+    const { origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete, cnpj_frete } = req.body;
 
-    if (!origem || !destino || !notas_fiscais || !data_frete || !placa_caminhao || valor_frete === undefined) {
+    if (!origem || !destino || !notas_fiscais || !data_frete || !placa_caminhao || valor_frete === undefined || !cnpj_frete) {
       return res.status(400).json({ error: 'Preencha todos os campos obrigatórios' });
+    }
+
+    if (!CNPJS_FRETE.includes(cnpj_frete)) {
+      return res.status(400).json({ error: 'CNPJ do frete inválido' });
     }
 
     const nfs = Array.isArray(notas_fiscais) ? notas_fiscais : [notas_fiscais];
     const stmt = db.prepare(`
-      INSERT INTO fretes (origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO fretes (origem, destino, notas_fiscais, descricao, data_frete, placa_caminhao, valor_frete, cnpj_frete)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -110,7 +120,8 @@ router.post('/', (req, res) => {
       (descricao || '').trim(),
       data_frete,
       placa_caminhao.toUpperCase().trim(),
-      parseFloat(valor_frete)
+      parseFloat(valor_frete),
+      cnpj_frete
     );
 
     res.status(201).json({ id: result.lastInsertRowid, message: 'Frete cadastrado com sucesso!' });

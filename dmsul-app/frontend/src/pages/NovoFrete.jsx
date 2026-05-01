@@ -2,6 +2,12 @@ import { useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 
+const CNPJS_FRETE = [
+  '05.648.120/0003-85',
+  '05.648.120/0004-66',
+  '05.648.120/0002-02',
+]
+
 function Toast({ msg, type }) {
   return msg ? <div className={`toast show ${type}`}>{msg}</div> : null
 }
@@ -15,6 +21,7 @@ export default function NovoFrete() {
     data_frete: new Date().toISOString().split('T')[0],
     placa_caminhao: '',
     valor_frete: '',
+    cnpj_frete: '',
   })
   const [notas, setNotas] = useState([''])
 
@@ -48,17 +55,21 @@ export default function NovoFrete() {
       return
     }
 
+    if (!CNPJS_FRETE.includes(form.cnpj_frete)) {
+      showToast('Selecione um CNPJ válido para o frete', 'error')
+      return
+    }
+
     setLoading(true)
     try {
       await axios.post('/api/fretes', {
         ...form,
         notas_fiscais: notasValidas,
         valor_frete: parseFloat(String(form.valor_frete).replace(',', '.')),
-        // Frete interno — origem/destino não são necessários
         origem: 'Interno',
         destino: 'Interno',
       })
-      showToast('✅ Frete cadastrado com sucesso!')
+      showToast('Frete cadastrado com sucesso')
       setTimeout(() => navigate('/historico'), 1500)
     } catch (err) {
       showToast(err.response?.data?.error || 'Erro ao cadastrar frete', 'error')
@@ -71,15 +82,7 @@ export default function NovoFrete() {
     <div className="page">
       <Toast {...toast} />
 
-      {/* Card de instrução */}
-      <div className="card" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 20 }}>
-        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-          Preencha os dados do frete e clique em <strong>Cadastrar</strong>. Você pode incluir múltiplas notas fiscais no mesmo frete.
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit}>
-        {/* Notas Fiscais */}
         <div className="form-group">
           <label className="form-label">Notas Fiscais <span className="required">*</span></label>
           <div className="nf-list">
@@ -92,17 +95,16 @@ export default function NovoFrete() {
                   placeholder={`Número da nota fiscal ${i + 1}`}
                 />
                 {notas.length > 1 && (
-                  <button type="button" className="btn-remove-nf" onClick={() => removeNota(i)}>✕</button>
+                  <button type="button" className="btn-remove-nf" onClick={() => removeNota(i)}>Remover</button>
                 )}
               </div>
             ))}
             <button type="button" className="btn-add-nf" onClick={addNota}>
-              ＋ Adicionar outra nota fiscal
+              Adicionar outra nota fiscal
             </button>
           </div>
         </div>
 
-        {/* Descrição */}
         <div className="form-group">
           <label className="form-label">Descrição da viagem</label>
           <textarea
@@ -114,7 +116,6 @@ export default function NovoFrete() {
           />
         </div>
 
-        {/* Data e Placa */}
         <div className="date-row">
           <div className="form-group">
             <label className="form-label">Data do frete <span className="required">*</span></label>
@@ -141,7 +142,6 @@ export default function NovoFrete() {
           </div>
         </div>
 
-        {/* Valor */}
         <div className="form-group">
           <label className="form-label">Valor do frete (R$) <span className="required">*</span></label>
           <input
@@ -158,9 +158,25 @@ export default function NovoFrete() {
           />
         </div>
 
+        <div className="form-group">
+          <label className="form-label">CNPJ do frete <span className="required">*</span></label>
+          <select
+            className="form-select"
+            name="cnpj_frete"
+            value={form.cnpj_frete}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Selecione um CNPJ</option>
+            {CNPJS_FRETE.map(cnpj => (
+              <option key={cnpj} value={cnpj}>{cnpj}</option>
+            ))}
+          </select>
+        </div>
+
         <div style={{ height: 8 }} />
         <button className="btn btn-primary" type="submit" disabled={loading}>
-          {loading ? '⏳ Salvando...' : '✅ Cadastrar Frete'}
+          {loading ? 'Salvando...' : 'Cadastrar Frete'}
         </button>
       </form>
     </div>

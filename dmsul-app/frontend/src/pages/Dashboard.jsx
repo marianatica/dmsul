@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 function formatCurrency(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 }
+
 function formatDate(d) {
   if (!d) return '-'
   const [y, m, day] = d.split('-')
@@ -43,37 +44,31 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="icon">🚛</div>
           <div className="label">Fretes este mês</div>
           <div className="value primary">{stats?.totalMes?.total || 0}</div>
         </div>
         <div className="stat-card">
-          <div className="icon">💰</div>
           <div className="label">Valor este mês</div>
           <div className="value accent">{formatCurrency(stats?.totalMes?.valor)}</div>
         </div>
         <div className="stat-card">
-          <div className="icon">📅</div>
           <div className="label">Fretes quinzena</div>
           <div className="value primary">{stats?.quinzena?.total || 0}</div>
         </div>
         <div className="stat-card">
-          <div className="icon">🚌</div>
           <div className="label">Caminhões ativos</div>
           <div className="value primary">{stats?.placas || 0}</div>
         </div>
       </div>
 
-      {/* Quinzena banner */}
       {stats?.quinzenaPeriodo && (
         <div className="quinzena-banner">
           <div>
             <div className="q-label">Quinzena atual</div>
             <div className="q-dates">
-              {formatDate(stats.quinzenaPeriodo.inicio)} → {formatDate(stats.quinzenaPeriodo.fim)}
+              {formatDate(stats.quinzenaPeriodo.inicio)} a {formatDate(stats.quinzenaPeriodo.fim)}
             </div>
           </div>
           <div>
@@ -83,17 +78,15 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick actions */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
         <button className="btn btn-primary" style={{ fontSize: 14, padding: '13px' }} onClick={() => navigate('/novo')}>
-          ➕ Novo Frete
+          Novo Frete
         </button>
         <button className="btn btn-red" style={{ fontSize: 14, padding: '13px' }} onClick={() => navigate('/relatorios')}>
-          📁 Relatório
+          Relatório
         </button>
       </div>
 
-      {/* Fretes recentes */}
       <div className="section-header">
         <span className="section-title">Fretes Recentes</span>
         <button className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => navigate('/historico')}>
@@ -103,7 +96,6 @@ export default function Dashboard() {
 
       {recentes.length === 0 ? (
         <div className="empty">
-          <div className="emoji">🚛</div>
           <p>Nenhum frete registrado ainda</p>
           <small>Toque em "Novo Frete" para começar</small>
         </div>
@@ -112,8 +104,9 @@ export default function Dashboard() {
           <div className="frete-card" key={f.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
               <div className="meta" style={{ margin: 0 }}>
-                <span className="badge primary">🚛 {f.placa_caminhao}</span>
-                <span className="badge">📅 {formatDate(f.data_frete)}</span>
+                {f.cnpj_frete && <span className="badge accent">CNPJ: {f.cnpj_frete}</span>}
+                <span className="badge primary">Placa: {f.placa_caminhao}</span>
+                <span className="badge">Data: {formatDate(f.data_frete)}</span>
               </div>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8, minHeight: 18 }}>

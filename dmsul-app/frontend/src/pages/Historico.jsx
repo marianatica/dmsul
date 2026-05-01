@@ -4,6 +4,7 @@ import axios from 'axios'
 function formatCurrency(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 }
+
 function formatDate(d) {
   if (!d) return '-'
   const [y, m, day] = d.split('-')
@@ -51,17 +52,15 @@ export default function Historico() {
 
   return (
     <div className="page">
-      {/* Search */}
       <div className="search-bar">
-        <span className="search-icon">🔍</span>
+        <span className="search-icon">Buscar</span>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por descrição ou placa..."
+          placeholder="Buscar por descrição, placa ou CNPJ..."
         />
       </div>
 
-      {/* Filtro por placa */}
       {placas.length > 0 && (
         <div className="filters">
           <span className={`filter-chip${!filtroPlaca ? ' active' : ''}`} onClick={() => setFiltroPlaca('')}>
@@ -72,12 +71,11 @@ export default function Historico() {
               key={p}
               className={`filter-chip${filtroPlaca === p ? ' active' : ''}`}
               onClick={() => setFiltroPlaca(p === filtroPlaca ? '' : p)}
-            >🚛 {p}</span>
+            >Placa {p}</span>
           ))}
         </div>
       )}
 
-      {/* Count + total */}
       {!loading && (
         <div className="section-header">
           <span className="section-title">{fretes.length} frete{fretes.length !== 1 ? 's' : ''}</span>
@@ -87,7 +85,6 @@ export default function Historico() {
         </div>
       )}
 
-      {/* Modal confirmação exclusão */}
       {confirmDelete && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
@@ -104,12 +101,10 @@ export default function Historico() {
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <div className="loading"><div className="spinner" /><p>Carregando...</p></div>
       ) : fretes.length === 0 ? (
         <div className="empty">
-          <div className="emoji">📋</div>
           <p>Nenhum frete encontrado</p>
           <small>{search ? 'Tente outro termo de busca' : 'Cadastre o primeiro frete'}</small>
         </div>
@@ -118,8 +113,9 @@ export default function Historico() {
           <div className="frete-card" key={f.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
               <div className="meta" style={{ margin: 0, flex: 1 }}>
-                <span className="badge primary">🚛 {f.placa_caminhao}</span>
-                <span className="badge">📅 {formatDate(f.data_frete)}</span>
+                {f.cnpj_frete && <span className="badge accent">CNPJ: {f.cnpj_frete}</span>}
+                <span className="badge primary">Placa: {f.placa_caminhao}</span>
+                <span className="badge">Data: {formatDate(f.data_frete)}</span>
               </div>
             </div>
 
@@ -136,7 +132,7 @@ export default function Historico() {
             <div className="footer">
               <div className="valor">{formatCurrency(f.valor_frete)}</div>
               <button className="btn btn-danger" onClick={() => setConfirmDelete(f.id)}>
-                🗑 Remover
+                Remover
               </button>
             </div>
           </div>
